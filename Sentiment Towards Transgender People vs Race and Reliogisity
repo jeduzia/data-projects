@@ -31,6 +31,8 @@ pre {
 
 ***
 
+##Load + Housekeeping
+
 ```{r echo=F, message=FALSE, results=FALSE}
 #housekeeping; packages, order vote 16, remove NA values, etc
 rm(list=ls())
@@ -56,6 +58,7 @@ head(df)
 df <- na.omit(df)
 ```
 
+##Recoding
 ```{r echo=F, message=FALSE, include=F, results=FALSE}
 #recoding
 
