@@ -1,0 +1,257 @@
+---
+title: "Sentiment Towards Transgender People by Race and Religiosity"
+author: "Jeduthun Zia"
+output:
+  word_document: default
+  html_document:
+    code_folding: hide
+always_allow_html: yes
+---
+
+<style type="text/css">
+
+h1.title {
+  font-size: 20px;
+}
+h1 { /* Header 1 */
+  font-size: 16px;
+}
+body, td {
+   font-size: 13px;
+   font-family: "Times New Roman", Times, serif;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+
+</style>
+
+***
+
+```{r echo=F, message=FALSE, results=FALSE}
+#housekeeping; packages, order vote 16, remove NA values, etc
+rm(list=ls())
+gc()
+directory <- "/Users/jed/Downloads/school stuff"
+setwd(directory)
+
+library(readxl)
+library(scales)
+library(xtable)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(survey)
+library(kableExtra)
+library(formattable)
+library(tidyr)
+library(MASS)
+library(lmtest)
+library(car)
+library(magrittr)
+library(MASS)
+library(DescTools)
+source("http://pcwww.liv.ac.uk/~william/R/crosstab.r")
+
+
+df <- read_excel("/Users/jed/Downloads/school stuff/GSSFinal.xlsx", sheet="Sheet1")
+df <- data.frame(df)
+df <- na.omit(df)
+head(df)
+length(df)
+
+```
+```{r echo=F, message=FALSE, include=F, results=FALSE}
+#recoding
+#is it easy for r to accomplish goals
+
+#df$MYGOALS <- ifelse(df$MYGOALS == "8" | df$MYGOALS == "9" | df$MYGOALS == "0", NA, df$MYGOALS)
+#group difficulty into 3 for convenience
+df <- df %>%
+  mutate (
+    MYGOALS.1 = case_when(
+      MYGOALS == 4 ~ "Neutral",
+      MYGOALS >=1 & MYGOALS <=3 ~ "Easy",
+      MYGOALS >=5 & MYGOALS <=7 ~ "Difficult"))
+
+#prof code
+df$MYGOALS <- ifelse(df$MYGOALS %in% c(0,8,9), NA, df$MYGOALS)
+df$MYGOALS <- factor(df$MYGOALS, labels = c("Completely true", "Mostly true",
+"Somewhat true","Neutral", "Somewhat untrue",
+"Mostly untrue", "Completely untrue"))
+
+#age when child was born 
+df$AGEKDBRN <- ifelse(df$AGEKDBRN > 97 | df$AGEKDBRN== "0", NA, df$AGEKDBRN)
+
+#controls
+#respondent age
+df$AGE <- ifelse(df$AGE > 97 | df$AGE == "0", NA, df$AGE)
+#degree
+#df$DEGREE <- ifelse(df$DEGREE == "7" | df$DEGREE == "8" | df$DEGREE == "9", NA, df$DEGREE)
+#df$DEGREE <- factor(df$DEGREE, labels=c('Less than High School', 'High School', 'Junior College', 'Bachelor', 'Graduate'))
+#prof code 
+temp <- c("DEGREE", "PADEG", "MADEG", "SPDEG")
+df[temp] <- lapply(df[temp], function(x) ifelse(x %in% c(7:9), 0, x))
+df[temp] <- lapply(df[temp], function(x) factor(x,
+labels = c("Below High School",
+"High School",
+"Junior College",
+"Bachelors", "Graduate"),
+ordered = T))
+#SEX
+df$SEX  <- factor(df$SEX, labels=c('Male', 'Female'))
+#race
+df$RACEHISP <- ifelse(df$RACEHISP == "9", NA, df$RACEHISP)
+df$RACEHISP <- factor(df$RACEHISP, labels=c('White', 'Black', 'Hispanic', 'Other'))
+
+df$USCITZN <- ifelse(df$USCITZN == "0" | df$USCITZN == "9" | df$USCITZN == "8", NA, df$USCITZN)
+
+#test
+head(df)
+colSums(!is.na(df))
+```
+
+```{r}
+#univariate
+#agekidbrn
+#table
+summary(df$AGEKDBRN)
+table(df$AGEKDBRN)
+prop.table(table(df$AGEKDBRN))
+agekdbrn<-data.frame(
+  Minimum=c("12"),
+  Median=c("23"),
+  Mean = c("24.3"),
+  Maximum= c(51),
+  NAs = c(682)
+)
+
+#agekdbrn table
+agekdbrn <- agekdbrn %>%
+  kbl(caption = "Summary") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") 
+agekdbrn
+
+#histogram
+univariate <- ggplot(df, aes(x=AGEKDBRN)) + 
+  geom_histogram(binwidth=1, na.rm=TRUE, color="darkseagreen4", fill="darkseagreen3")  +
+  theme_classic() +
+  labs(title="Respondents' Age When Their First Child Was Born", subtitle="From General Social Survey 1972-2018", x="Age", y="Count of Respondents") +
+  theme(plot.title=element_text(size=12, face="bold", hjust=0.5),   plot.subtitle = element_text(face="italic", hjust = 0.5))
+
+univariate
+```
+
+```{r}
+#bivariate
+#agekdbrn and goals
+## Change ordering manually
+df$MYGOALS.1 <- factor(df$MYGOALS.1,                                  
+                  levels = c("Easy", "Neutral", "Difficult"))
+agekdgoal <- aggregate(AGEKDBRN ~ MYGOALS.1, data = df, mean )
+agekdgoal
+
+#df$MYGOALS <- factor(df$MYGOALS, labels=c('Completely True', 'Mostly True', 'Somewhat True', 'Neutral', 'Somewhat Untrue', 'Mostly Untrue', 'Completely Untrue'))
+#agekdgoal.2 <- aggregate(AGEKDBRN ~ MYGOALS, data = df, mean )
+#agekdgoal.2
+
+#tables
+#table for 3 category MYGOALS
+agekdgoalt1<-data.frame(
+  "Easy"=c("25.1"),
+  "Neutral"=c("24.5"),
+  "Difficult"=c("22.6")
+)
+agekdbrnt1 <- agekdgoalt1 %>%
+  kbl(caption = "Mean Ages") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") 
+agekdbrnt1
+
+prop.table(table(df$MYGOALS.1, df$AGEKDBRN))
+
+#table for original 1-7 MYGOALS
+agekdgoalt2<-data.frame(
+  "Completely True"=c(23.2),
+  "Mostly True"=c(25.1),
+  "Somewhat True"=c(24),
+  "Neutral" = c(25),
+  "Somewhat Untrue" = c(23),
+  "Mostly Untrue" = c(22),
+  "Completely Untrue"= c(20)
+)
+
+agekdbrnt2 <- agekdgoalt2 %>%
+  kbl(caption = "Mean Ages") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") 
+agekdbrnt2
+
+
+#graphs
+#column
+bivariate1 <- ggplot(agekdgoal, aes(x=MYGOALS.1, y=AGEKDBRN, fill=MYGOALS.1)) +
+  geom_bar(stat='identity', width=0.5, na.rm=TRUE) +
+  scale_fill_brewer(palette="Blues")+
+  ylim(0, 26) +
+  coord_flip() +
+  theme_classic()+ 
+  geom_text(aes(label=round(AGEKDBRN, digits=2)), vjust=-0.4, hjust=-0.3,
+            position = position_dodge(0.9), size=3.5) +
+  theme(legend.position="none") +
+  labs(title="Mean age of R when their first child was born, by difficulty of achieving goals", subtitle="From General Social Survey 1972-2018", 
+         x="Difficulty", y = "Mean Age of Respondents") +
+  theme(plot.title=element_text(size=12, face="bold", hjust=0.5),   plot.subtitle = element_text(face="italic", hjust = 0.5)) 
+
+
+bivariate1
+
+#line for all 7 categories
+bivariate2 <- ggplot(agekdgoal.2, aes(x=MYGOALS, y=AGEKDBRN, fill=MYGOALS, group=1)) +
+  geom_line(linetype="dashed", color="lightskyblue") +
+  geom_point(color="skyblue2") +
+  ylim(0, 26) +
+  theme_classic()+ 
+  geom_text(aes(label=round(AGEKDBRN, digits=2)), vjust=-0.4, hjust=-0.3,
+            position = position_dodge(0.9), size=3.5) +
+  theme(legend.position="none") +
+  labs(title="Mean age of R when their first child was born, by difficulty of achieving goals", subtitle="From General Social Survey 1972-2018", 
+         x="It is easy for me to achieve my goals.", y = "Mean Age of Respondents") +
+  theme(plot.title=element_text(size=12, face="bold", hjust=0.5),   plot.subtitle = element_text(face="italic", hjust = 0.5)) 
+
+bivariate2
+```
+
+
+```{r}
+#svy weights
+df.design <- svydesign(
+  ids = ~VPSU,
+  strata = ~VSTRAT,
+  data = df,
+  weights = ~WTSSALL,
+  nest = T)
+summary(df.design)
+```
+
+
+```{r}
+#regression (regular glm)
+
+df$MYGOALS <- ifelse(df$MYGOALS == "Completely true" | df$MYGOALS == "Mostly true" | df$MYGOALS == "Somewhat true", 1, 0)
+
+#df$MYGOALS <- factor(df$MYGOALS, labels = c("Completely true", "Mostly true",
+#"Somewhat true","Neutral", "Somewhat untrue",
+#"Mostly untrue", "Completely untrue"))
+
+MYGOALSR <- glm(MYGOALS ~ AGEKDBRN +  AGE + DEGREE + RACEHISP + SEX + USCITZN, family="binomial", data=df)
+summary(MYGOALSR)
+#PseudoR2(MYGOALSR)
+#exp(coef(MYGOALSR))
+
+#poissoncheck
+MYGOALSR2 <- glm(MYGOALS ~ AGEKDBRN + AGE + DEGREE + RACEHISP + SEX + USCITZN, family="poisson", data=df)
+summary(MYGOALSR2)
+
+```

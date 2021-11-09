@@ -1,0 +1,247 @@
+---
+title: "Assignment 4"
+author: "Jeduthun Zia"
+output:
+  word_document: default
+  html_document:
+    code_folding: hide
+always_allow_html: yes
+---
+
+<style type="text/css">
+
+body, td {
+   font-size: 13px;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+
+</style>
+
+***
+```{r echo=F, message=FALSE, results=FALSE}
+rm(list=ls())
+gc()
+directory <- "/Users/jed/Downloads/school stuff/data 712"
+setwd(directory)
+
+library(readxl)
+library(scales)
+library(xtable)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(pander)
+library(data.table)
+library(formattable)
+
+WDI <- read_excel("/Users/jed/Downloads/school stuff/WDIExtract2.xlsx", sheet="Data")
+WDI <- data.frame(WDI)
+```
+<p style="text-align: center;">
+`Loading Data`
+</p>
+***
+```{r echo=T, results=F}
+#1a. raising per capita GDP
+mortgdp <- lm(mort.mat ~ gdp.pc, data=WDI)
+summary(mortgdp)
+
+#1b. finding a way to increase number of doctors
+mortdoctor <- lm(mort.mat ~ doctors, data=WDI)
+summary(mortdoctor)
+#1c. increase availability of hospital beds.
+mortbeds <- lm(mort.mat ~ hospbeds, data=WDI)
+summary(mortbeds)
+
+```
+
+### **1.**
+
+*The following results all support the expert's theory. Raising the number of all three variables (GDP, doctors, and hospital beds) is likely to lower maternal mortality rates.*
+
+```{r echo=F, include=F, results=F}
+morttbl <- data.frame(
+  Coefficients = c("GDP", "Doctors", "Hospital Beds"),
+  Estimate = c("-0.06320", "-82.486", "-38.630"),
+  "P-value" = c("1.16e-09", "4.11e=16", "1.23e-07"),
+  RSquared = c(0.1902, 0.3756, 0.2633),
+  FStatistic = c(41.34, 84.82, 32.88),
+  "Residuals P value" = c("1.164e-09", "4.113e-16", "1.235e-07")
+)
+
+morttbl <- morttbl %>%
+  kbl() %>% 
+  kable_classic("striped", full_width=T, html_font="Cambria") %>%
+  column_spec(1, border_right=T, bold=T)
+
+morttbl
+```
+
+<div class = "row">
+<div class = "col-md-4">
+#### **GDP**
+
+**Size, Sign, and Significance:** For every +1% increase in GDP Per Capita, maternal mortality rates are predicted to decrease 0.6%, indicating a significant negative relationship between GDP and maternal mortality rates *(β = -0.006, p<0.001)*
+
+**Model fit:** The model has a lower R squared, only explaining around 20% of the variation in maternal mortality rates *(R2 = 0.19, F(1,176)=41.3, p<0.05).*
+
+```{r echo=F, include=T, message=F, warning=F, results=T}
+ggplot(WDI, aes(x=gdp.pc, y=mort.mat)) +
+  geom_point(color="mediumpurple3") + 
+  geom_smooth(method="lm", linetype="dashed", se=F, color="mediumpurple1") +
+  scale_y_continuous(limits=c(0,NA)) +
+  labs(x="GDP per Capita", y="Maternal Mortality") +
+  theme_minimal()
+```
+</div>
+
+<div class = "col-md-4">
+#### **Doctors**
+
+**Size, Sign, and Significance:** Findings suggests a significant negative relationship with maternal mortality rates. For every +1% increase in physicians per 1000 people, marital mortality rates are predicted to decrease 82% *(β = -82.49, p<0.001).*
+
+**Model fit:** The model's R squared is also on the lower end, explaining for around 38% of the variation in maternal mortality rates *(R2 = 0.3756), F(1,141)=84.82 p<0.05)*
+
+```{r echo=F, include=T, message=F, warning=F, results=T}
+ggplot(WDI, aes(x=doctors, y=mort.mat)) +
+  geom_point(color="steelblue") + 
+  geom_smooth(method="lm", linetype="dashed", se=F, color="steelblue2") +
+  scale_y_continuous(limits=c(0,NA)) +
+  labs(x="Doctors per 1K People", y="Maternal Mortality") +
+  theme_minimal()
+
+```
+</div>
+
+<div class = "col-md-4">
+#### **Hospital Beds**
+**Size, Sign, and Significance:** For every +1% increase in hospital beds per 1000 people, marital mortality rates are predicted to decrease 38.6%. Like the previous two variables, this suggests a significant negative relationship between hospital beds and marital mortality *(β = -38.630, p<0.001)*
+
+**Model fit:** The model explains around 26% of the variation in maternal mortality rates *(R2 = 0.2633), F(1,92)=32.88. p<0.05)*
+
+
+```{r echo=F, include=T, message=F, warning=F, results=T}
+ggplot(WDI, aes(x=hospbeds, y=mort.mat)) +
+  geom_point(color="springgreen3") + 
+  geom_smooth(method="lm", linetype="dashed", se=F, color="springgreen") +
+  scale_y_continuous(limits=c(0,NA)) +
+  labs(x="Hospital Beds per 1K People", y="Maternal Mortality") +
+  theme_minimal()
+```
+</div>
+</div>
+***
+
+```{r echo=T, results=F}
+morthealth <- lm(mort.mat ~ hexp, data=WDI)
+summary(morthealth)
+```
+
+
+### **2.**
+<div class = "row">
+<div class = "col-md-4">
+I predict that raising **health expenditure** (provisions for health services such as family planning, nutritional activities) might also lower maternal mortality rates.
+
+```{r echo=F, include=F, results=F}
+
+morthealth <- data.frame(
+  Coefficients = c("Health Expenditure"),
+  Estimate = c("-14.769"),
+  "P-value" = c("0.0251"),
+  RSquared = c(0.02817),
+  FStatistic = c(5.102),
+  "Residuals P value" = c(0.02512)
+)
+
+morthealth <- morthealth %>%
+  kbl() %>% 
+  kable_classic("striped", full_width=F, html_font="Cambria") %>%
+  column_spec(1, border_right=T, bold=T) %>%
+   scroll_box(width = "280px", height = "80px")
+
+morthealth
+```
+</div>
+<div class = "col-md-4">
+**Size, Sign, and Significance:** An OLS regression also suggests that health expenditure has a significant negative relationship with maternal mortality rates. *(β = -14.77, p<0.05)*. For every +1% increase in health expenditure, maternal mortality rates are predicted to decrease about 15%. 
+
+**Model fit:** This model's effect on variation in mortality rates is also much less than GDP, doctors, or hospital beds. Only 3% of the variation in maternal mortality rates can be explained by health expenditure *(R2 = 0.02817), F(1,176)=5.102, p<0.05).*
+
+</div>
+<div class = "col-md-4">
+```{r echo=F, include=T, message=F, warning=F, results=T}
+ggplot(WDI, aes(x=hexp, y=mort.mat)) +
+  geom_point(color="palevioletred3") + 
+  geom_smooth(method="lm", linetype="dashed", se=F, color="palevioletred1") +
+  scale_y_continuous(limits=c(0,NA)) +
+  labs(x="Health Expenditure (% of GDP)", y="Maternal Mortality") +
+  theme_minimal()
+```
+</div>
+</div>
+Though results for health expenditure are less significant than the expert's variables, they are still significant nonetheless and suggest that an increase in health expenditure could lower maternal mortality rates.
+
+***
+
+```{r echo=T, results=F}
+farmlit <- lm(literacy ~ farmland, data=WDI)
+summary(farmlit)
+```
+
+### **3.**
+<div class = "row">
+<div class = "col-md-4">
+I've chosen to explore a relationship between **farmland** and **literacy.** Movies have taught me that farms have people that don't have high levels of education. Of course that's not true, but I'd like to explore it anyway :)
+
+```{r echo=F, include=F, results=F}
+farmlit <- data.frame(
+  Coefficients = c("Farmland"),
+  Estimate = c("-0.3020"),
+  "P-value" = c("0.226"),
+  RSquared = c(0.03468),
+  FStatistic = c(1.509),
+  "Residuals P value" = c(0.2262)
+)
+
+farmlit <- farmlit %>%
+  kbl() %>% 
+  kable_classic("striped", full_width=T, html_font="Cambria") %>%
+  column_spec(1, border_right=T, bold=T) %>%
+  scroll_box(width = "280px", height = "80px")
+
+farmlit
+```
+</div>
+
+<div class = "col-md-4">
+**Size, Sign, and Significance**: An OLS regression shows a negative
+relationship between farmlands and literacy. The more "arable land" there is, the lower literacy rates are. However, these results are non-significant, having a p value of 0.226, indicating that there's a higher chance of these two variables having no relationship at all *(β = -0.3020, p>0.05)*.
+
+**Model fit:** The model suggests that 3% of variation in literacy could be explained by percent of farmlands in a country. However, this is number is also non-significant *(R2 = 0.03468, F(1,42)=1.509, p>0.05). *
+
+</div>
+
+<div class = "col-md-4">
+```{r echo=F, include=T, message=F, warning=F, results=T}
+ggplot(WDI, aes(x=farmland, y=literacy)) +
+  geom_point(color="coral3") + 
+  geom_smooth(method="lm", linetype="dashed", se=F, color="coral1") +
+  scale_y_continuous(limits=c(0,NA)) +
+  labs(x="Farmland (% of Land Area)", y="Literacy Rate, %") +
+  theme_minimal()
+
+```
+</div>
+</div>
+
+Given that the results are non-significant, suggesting that it's more likely that these variables have no relationship, I don't think this is a good model at all. In short, don't believe the movies.
+
+***

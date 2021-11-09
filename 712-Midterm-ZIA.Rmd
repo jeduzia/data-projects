@@ -1,0 +1,384 @@
+---
+title: "Sentiment Towards Transgender People by Race and Religiosity"
+author: "Jeduthun Zia"
+output:
+  word_document: default
+  html_document:
+    code_folding: hide
+always_allow_html: yes
+---
+
+<style type="text/css">
+
+h1.title {
+  font-size: 20px;
+}
+h1 { /* Header 1 */
+  font-size: 16px;
+}
+body, td {
+   font-size: 13px;
+   font-family: "Times New Roman", Times, serif;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+
+</style>
+
+***
+
+```{r echo=F, message=FALSE, results=FALSE}
+#housekeeping; packages, order vote 16, remove NA values, etc
+rm(list=ls())
+gc()
+directory <- "/Users/jed/Downloads/school stuff/data 712"
+setwd(directory)
+
+library(readxl)
+library(scales)
+library(xtable)
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(kableExtra)
+library(formattable)
+library(MASS)
+library(lmtest)
+library(car)
+
+df <- read_excel("/Users/jed/Downloads/school stuff/rawdata.xlsx", sheet="rawdata")
+df <- data.frame(df)
+head(df)
+df <- na.omit(df)
+```
+
+```{r echo=F, message=FALSE, include=F, results=FALSE}
+#recoding
+
+#transsentimment
+df$v162111 <- ifelse(df$v162111 == "-7" | df$v162111 == "-9" | df$v162111 == "-6" | df$v162111 == 998 | df$v162111 == 999 , NA, df$v162111)
+
+#race
+df$v161310x <- ifelse(df$v161310x == "-9", NA, df$v161310x)
+df$v161310x<- factor(df$v161310x, labels=c('White', 'Black', 'Asian', 'NativeAmerican', 'Hispanic', 'Other'))
+
+#religiosity
+#(how often you go to church)
+df$v161245 <- ifelse(df$v161245 == "-1" | df$v161245 == "-9" | df$v161245 == "-8", NA, df$v161245)
+df$v161245 <- factor(df$v161245, labels=c('Weekly', 'AlmostWeekly', 'Monthly', 'Yearly', 'Never'))
+#is religion important?
+df$v161241 <- ifelse(df$v161241  == "-9" | df$v161241  == "-8", NA, df$v161241  )
+df$v161241  <- factor(df$v161241, labels=c('Important', 'Not Important'))
+
+#political affiliation
+#political party
+df$v161019 <- ifelse(df$v161019 == "-1" | df$v161019 == "-9" | df$v161019 == "-8", NA, df$v161019)
+df$v161019<- factor(df$v161019, labels=c('Democrat', 'Republican', 'Independent', 'Other'))
+#liberalvsconservative
+
+df$v161126 <- ifelse(df$v161126 == "99" | df$v161126 == "-9" | df$v161126 == "-8", NA, df$v161126)
+df$v161126<- factor(df$v161126, labels=c('ExtremelyLiberal', 'Liberal', 'SlightlyLiberal', 'Moderate', "SlightlyConservative", "Conservative", "ExtremelyConservative"))
+#levels(df$v161126) <- list("Liberal"=c("ExtremelyLiberal", "Liberal", "SlightlyLiberal"), "Moderate"="Moderate", "Conservative" = c("SlightlyConservative", "Conservative", "ExtremelyConservative"))
+levels(df$v161126) 
+```
+
+```{r echo=F, message=FALSE, include=F, results=FALSE}
+#demographics
+race<-prop.table(table(df$v161310x))
+race<-data.frame(
+  race=c("White", "Black", "Asian", "Native American", "Hispanic", "Other"),
+  Freq=c(0.72, 0.09, 0.03, 0.01, 0.11, 0.04)
+)
+
+relig1<-prop.table(table(df$v161245))
+relig2<-prop.table(table(df$v161241))
+pol<-prop.table(table(df$v161019))
+pol2<-prop.table(table(df$v161126))
+pol2
+
+levels(df$v161126) <- list("Liberal"=c("ExtremelyLiberal", "Liberal", "SlightlyLiberal"), "Moderate"="Moderate", "Conservative" = c("SlightlyConservative", "Conservative", "ExtremelyConservative"))
+
+pol3<-prop.table(table(df$v161126))
+pol3
+
+
+```
+
+
+**Transgender** is a term used to describe individuals whose gender identity is different from the sex they were assigned at birth. In recent years, there have been major progress in the acceptance of the transgender community. However, discrimination and violence against transgender people still exist. According to the National Center for Transgender Equality (https://transequality.org/), they are less likely to be employed, have high rates of suicide, murder, homelessness, hate crime, and incarceration (relative to the general population). These issues are even more pronounced for transgender people of color. 
+In this memo, we will explore sentiment towards transgender people. The ANES Time Series sample provides a "feeling thermometer" for transgender people, where respondents were asked to rate [how they feel about] them from 0-100, 0 being "cold", indicating disapproval, and 100 representing "warm" or approval. 
+
+***
+
+<div class = "row">
+<div class = "col-md-6">
+
+This memo aims to identify patterns in transgender sentiment in different **racial groups**. The Public Religion Research Institute reported that more than half of White, Hispanic, and Asian-Pacific Islanders in the US support same-sex marriage, while Black Americans are slightly less accepting. We will attempt to produce similar results, but for transgender people. Additionally, racial trends can occur in other metrics religious groups - another demographic that has been studied in their views towards LGBT issues. 
+```{r echo=F}
+#race table
+racetab <- race %>%
+  kbl(caption = "Table 1: Racial Groups in ANES") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") 
+racetab
+```
+
+</div>
+<div class = "col-md-6">
+<center>
+```{r echo=F}
+#racepiechart
+race <- ggplot(race, aes(x="race", y=Freq, fill=race)) +
+  geom_bar(stat="identity", width=1, color="white") +
+  coord_polar("y", start=0) +
+  theme_void() +
+  scale_color_manual(name = "Race", labels = c("Asian, 3%", "Black, 9%", "Hispanic, 11%", "Native American, 1%", "Other, 4%", "White, 72%")) +
+  scale_fill_brewer(palette = "Purples")
+
+race
+```
+</center>
+</div>
+</div>
+
+***
+<div class = "row">
+<div class = "col-md-6">
+<center>
+```{r echo=F, include=T, results=T, message=FALSE}
+#bivariate
+transandracebiv <- aggregate(v162111 ~ v161310x, data = df, mean)
+
+transandracebiv <- ggplot(transandracebiv, aes(x=reorder(v161310x, v162111), y=v162111, fill=reorder(v161310x, v162111))) +
+  geom_bar(stat='identity', width=0.5,color="lightgray", na.rm=TRUE) + 
+  ylim(0, 100) +
+  coord_flip() +
+  theme_minimal()+
+  scale_fill_brewer(palette = "Purples") +
+  geom_text(aes(label=round(v162111, digits=2)), vjust=-0.4, hjust=-0.3,
+            position = position_dodge(0.9), size=3.5) +
+  theme(legend.position="none") +
+  labs(title="Transgender Sentiment by Race ", 
+         x="Race", y = "Mean Transgender Temperature")
+transandracebiv
+ggsave("transandracebiv.png")
+
+```
+</center>
+</div>
+
+<div class = "col-md-6">
+**A bivariate analysis of transgender sentiment and race** revealed that the average "temperature" all of the racial groups rated for transgender people hover around the halfway mark of the feeling thermometer, leaning more towards a "Warm" sentiment or approval. Hispanics and Blacks view transgender people slightly higher than the other racial groups, while Asians and respondents who specified as "Other" scored them lower, albeit still above 50 "degrees". 
+```{r echo=F}
+transandracebivtab<-data.frame(
+  race=c("White", "Black", "Asian", "Native American", "Hispanic", "Other"),
+  Mean=c(55.24, 56.03, 54.50, 54.65, 58.26, 52.97))
+
+transandracebivtab <- transandracebivtab %>%
+  kbl(caption = "Table 2: Transgender Sentiment by Race, Means") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") 
+
+transandracebivtab
+```
+</div>
+</div>
+
+***
+
+**A regression model on transgender and race** are consistent with our bivariate analysis. Blacks and Hispanics are both likely to rate transgender people around 0.8% to 3% higher than White people, while the other races score them lower. However, the p-values indicate that for the most part these findings are non-significant, except for Hispanics. Even so, the adjusted R-squared also gives us a number less than 1%, indicating that race is not a likely factor for the variance in transgender sentiment. 
+
+```{r echo=F, include=F, message=FALSE, results=F}
+trans <- lm(v162111 ~ v161310x, df)
+summary(trans)
+```
+</center>
+```{r echo=F, include=TRUE, message=FALSE, results=TRUE}
+trans <- data.frame(
+  "Predictors" = c("Black", "Asian", "Native American", "Hispanic", "Other"),
+  Estimate = c(0.79, -0.75, -0.59, 3.02, -2.26),
+  SE = c(1.58, 2.62, 5.68, 1.52, 2.36),
+  "P-value" = c(0.61, 0.77, 0.91, 0.04, 0.33))
+
+trans <- trans %>%
+  kbl(caption = "**Table 3:** Regression Model for Transgender Sentiment by Race") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria") %>%
+  pack_rows("Race (Baseline: White Non-Hispanic)", 1, 5) %>%
+  footnote(general = 0.0001477 ,
+           number = 1.105, 
+           alphabet = "0.3554",
+           general_title = "Adjusted R-squared ", number_title = "F-statistic: ",
+           alphabet_title = "p-value:",
+           footnote_as_chunk = T)
+trans
+```
+</center>
+
+***
+**Controls**
+<div class = "row">
+<div class = "col-md-6">
+<center>
+```{r echo=F, message=FALSE, include=T, results=T, fig.align="center"}
+transpoli <- aggregate(v162111 ~ v161019, data = df, mean)
+
+transpoli <-ggplot(transpoli, aes(x=reorder(v161019, v162111), y=v162111, fill=reorder(v161019, v162111))) +
+  geom_bar(stat='identity', width=0.5, color="lightgray", na.rm=TRUE) + 
+  ylim(0, 100) +
+  coord_flip() +
+  theme_minimal()+
+  scale_fill_brewer(palette = "Blues") +
+  geom_text(aes(label=round(v162111, digits=2)), vjust=-0.4, hjust=-0.3,
+            position = position_dodge(0.9), size=3.5) +
+  theme(legend.position="none") +
+  labs(title="Political Affiliation and Transgender Sentiment", 
+         x="Political Affiliation", y = "Transgender Sentiment Mean Temperature")
+transpoli
+```
+</div>
+<div class = "col-md-6">
+<center>
+```{r echo=F, message=FALSE, include=T, results=T, fig.align="center"}
+transandreligbiv <- aggregate(v162111 ~ v161245, data = df, mean)
+
+transandreligbiv <-ggplot(transandreligbiv, aes(x=reorder(v161245, v162111), y=v162111, fill=reorder(v161245, v162111))) +
+  geom_bar(stat='identity', width=0.5, color="lightgray", na.rm=TRUE) + 
+  ylim(0, 100) +
+  coord_flip() +
+  theme_minimal()+
+  scale_fill_brewer(palette = "Greens") +
+  geom_text(aes(label=round(v162111, digits=2)), vjust=-0.4, hjust=-0.3,
+            position = position_dodge(0.9), size=3.5) +
+  theme(legend.position="none") +
+  labs(title="Religiosity and Transgender Sentiment", subtitle = "How often do you attend religious services?",
+         x="Religious Services Attendance", y = "Transgender Sentiment Mean Temperature")
+
+transandreligbiv
+```
+</div>
+</div>
+
+```{r echo=F, message=FALSE, include=T, results=T, fig.align="center", warning=F}
+chipolrace <-chisq.test(df$v161310x, df$v161019)
+chirelrace <- chisq.test(df$v161310x, df$v161245)
+chipolrel <- chisq.test(df$v161019, df$v161245 )
+
+chisq <- data.frame(
+  "Predictors " = c("Political Affiliation & Race", "Religiosity & Race", "Political Affiliation and Religiosity"),
+  "P-value" = c(" 2.2e-16", "0.001055", "0.005539" ))
+
+chisq <- chisq %>%
+  kbl(caption = "**Table 4:** Chi-square P Values for Race and Controls") %>%
+  kable_classic("striped", full_width=F, html_font="Cambria")
+
+chisq
+```
+**I ran another model, this time with two controls: political affiliation based on political party and religiosity based on frequency of church attendance.** 
+From eyeballing the two figures above, the differences in transgender sentiment for the two groups are much more apparent.  For political affiliation, Democrats and Others  are more likely to view transgender people favorably. I also ran a Pearson's Chi-Squared test to see if there are significant associations between the three predictors (race, political affiliation, and religiosity). The test returned p values lower than our alpha, 0.05, suggesting that the variables affect one another.
+<br>
+In the regression model below, we are given an adjusted r-square statistic of about 13%, much higher than the model for just race and transgender. Overall p-value is also less than alpha, suggesting that race is now 13% accountable for the variance in transgender sentiment, rather than less than 1%. Controlling for religiosity and political affiliation also showed a change in directions for some racial groups. Black people and Hispanics are no longer shown to rate transgender people higher than White people rate them.
+<br>
+Because these are discrete variables, regression diagnostics such as testing for normality are not optimal. Running a test for heteroscedasticity using a Breusch-Pagan test revealed a BP of 8.0267 and a high p-value of 0.783 implying  errors are *not* heteroskedastic, and no model assumptions are violated.
+
+```{r echo=F, include=F, message=FALSE, results=F,}
+#regression tests
+trans <- lm(v162111 ~ v161310x, df)
+trans2 <- lm(v162111 ~ v161310x + v161245 + v161241, df)
+trans3 <- lm(v162111 ~ v161310x + v161019 + v161126, df)
+trans4 <- lm(v162111 ~ v161310x + v161245 + v161019, df)
+summary(trans4)
+```
+
+```{r echo=F, include=T, message=FALSE, results=T}
+#regression w/ religion + political party
+transreg <- data.frame(
+  "Predictors" = c("Black", "Asian", "Native American", "Hispanic", "Other", "Almost Weekly", "Once or Twice a Month", "Once or Twice a Year", "Never", "Republican", "Independent", "Other"),
+  Estimate = c(-9.33, -7.59, -7.43, -3.89, -7.12, 5.63, 10.04, 16.69, 13.17, -15.81, -7.52, -4.05),
+   SE = c(2.77, 4.53, 14.23, 2.55, 4.19, 2.20, 2.37, 1.99, 7.25, 1.91, 2.21, 7.86 ),
+  "P-value" = c("*0.0008*", 0.094, 0.601, 0.127, 0.090, 0.011, "2.41e-05", "2e-16", 0.070, "4.67e-106", 0.0007, 0.606 ))
+
+transreg <- transreg %>%
+  kbl(caption = "**Table 5:** Regression Model for Transgender Sentiment, Race and Controls") %>%
+  kable_classic("striped", full_width=T, html_font="Cambria") %>%
+  pack_rows("Race (Baseline: White Non-Hispanic)", 1, 5) %>%
+  pack_rows("Religious Service Attendance (Baseline: Weekly)", 6,9) %>%
+  pack_rows("Political Party (Baseline: Demomcrat)", 10, 12) %>%
+  footnote(general = 0.1271 ,
+           number = 13.16, 
+           alphabet = "2.2e-16",
+           general_title = "Adjusted R-squared ", number_title = "F-statistic: ",
+           alphabet_title = "p-value:",
+           footnote_as_chunk = T)
+transreg
+```
+
+```{r echo=F, message=FALSE,  include=F, results=F}
+#diagnostics
+#shapiro-wilk normality test **
+resid <- studres(trans4)
+hist(resid)
+qqnorm(resid)
+qqline(resid)
+shapiro.test(resid)
+
+#heteroscedasticity
+p.1 <- predict(trans4)
+std.p.1 <- (p.1 - mean(p.1))/sd(p.1)
+r.1 <- resid(trans4)
+std.r.1 <- (r.1 - mean(r.1))/sd(r.1)
+plot(std.p.1,std.r.1,xlab="Standardized Predicted Values", ylab="Standarized Residuals")
+abline(0,0)
+#breusch-pagan
+bptest(trans4)
+
+#outliers
+leveragePlots(trans4)
+outlierTest(trans4)
+
+#linearity
+crPlots(trans4)
+```
+***
+
+**In sum,** without our controls, race does not significantly affect transgender sentiment. With controls, this conclusion changes drastically. As mentioned before our analyses, race plays a role in other metrics such as religion and politics, both of which also are likely to play a role in sentiment towards the LBTQ community. Of course, there are other factors that can influence sentiment towards transgenders beyond religion and politics. Gender and education level may play a role, and adding these variables in would possibly have given us more significant statistics Running bivariate analyses and a regression model with the two controls suggest that those who are White, non-religious, and non-Republicans, are more likely to view the transgender community favorably. Reasoning could include that perhaps minorities are more religious and therefore also more conservative, aligning with more Republican values. 
+<br>
+Below are charts showing frequency of the racial groups in categories for religiosity and political affiliations based on the ANES data. It doesn't correspond with the possible reasoning I just provided - for example, the majority of Black respondents are Republican and over half of them are regular or semi-regular church goers. However, these charts are misleading because the ANES data is extremely disproportionate. There were more White respondents accounting for about 70% of the data, while every other racial group accounts for less than 11%, each.
+
+
+<div class = "row">
+<div class = "col-md-6">
+```{r echo=F, message=FALSE, warning=F, include=T, results=T, fig.align="center"}
+poliracet <- table(df$v161310x, df$v161019)
+poliracet2 <- prop.table(table(df$v161310x, df$v161019),1)
+chisq <- chisq.test(poliracet)
+polirace <- data.frame(poliracet)
+names(polirace) <- paste(c("Race", "Political_Party", "Value"))
+
+polirace<- ggplot(polirace, aes(x=Race, y=Value, fill=Political_Party)) +
+  geom_bar(stat="identity", position="fill", color="lightgray", na.rm=TRUE) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Blues") +
+  theme_minimal()
+polirace
+
+```
+</div>
+
+<div class = "col-md-6">
+```{r echo=F, message=FALSE, warning=F, include=T, results=T, fig.align="center"}
+religracet <- table(df$v161310x, df$v161245)
+religracet2 <- prop.table(table(df$v161310x, df$v161245),1)
+chisq <- chisq.test(religracet)
+religrace <- data.frame(religracet)
+names(religrace) <- paste(c("Race", "Attend_Religious_Services", "Value"))
+religraceg<- ggplot(religrace, aes(x=Race, y=Value, fill=Attend_Religious_Services)) +
+  geom_bar(stat="identity", position="fill", color="lightgray", na.rm=TRUE) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_fill_brewer(palette = "Greens") +
+  theme_minimal()
+religraceg
+```
+</div>
+</div>

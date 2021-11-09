@@ -1,0 +1,133 @@
+---
+title: "Assignment 3"
+author: "Jeduthun Zia"
+output:
+  html_document:
+    code_folding: hide
+  word_document: default
+always_allow_html: yes
+theme: cerulean
+editor_options:
+  chunk_output_type: console
+---
+
+<style type="text/css">
+
+body, td {
+   font-size: 14px;
+}
+code.r{
+  font-size: 12px;
+}
+pre {
+  font-size: 12px
+}
+
+</style>
+
+All data is from the WDI extract provided in class.
+
+***
+
+```{r echo=T, message=FALSE, warning=FALSE, include=F}
+rm(list=ls())
+gc()
+directory <- "/Users/jed/Downloads/school stuff/data 712"
+setwd(directory)
+
+library(readxl)
+library(scales)
+library(xtable)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
+library(formattable)
+
+WDI <- read_excel("/Users/jed/Downloads/school stuff/WDIExtract1.xlsx", sheet="Data")
+WDI <- data.frame(WDI)
+
+#1 univariate plot
+
+univariate <- ggplot(WDI, aes(x=murder)) + 
+  geom_histogram(binwidth=1, na.rm=TRUE, color="peachpuff4", fill="peachpuff3")  +
+  theme_minimal() +
+  labs(title="Count of Intentional Homicide Rates per 100K People", subtitle="From WDI Data", x="Murders Per 100K People", y="Count of Countries") +
+  theme(plot.title=element_text(size=12, face="bold", hjust=0.5),   plot.subtitle = element_text(face="italic", hjust = 0.5))
+
+
+#2 bivariate discretes
+summary(WDI$birthrate)
+quantile(WDI$birthrate, probs=c(0, 0.25, 0.75, 1), na.rm=TRUE)
+birthrate2 <- cut(WDI$birthrate, breaks=c(0, 10.8765, 27.2670, 9999))
+birthrate2 <- factor(birthrate2, ordered=TRUE, labels=c("Low", "Medium", "High"))
+WDI$inc.group <- factor(WDI$inc.group, levels =c("Low", "Medium", "High"))
+birthrate.income<- table(WDI$inc.group, birthrate2)
+birthrate.income <- data.frame(birthrate.income)
+names(birthrate.income) <- paste(c("IncomeGroup", "BirthRate", "Count"))
+
+bivariate.d <- ggplot(birthrate.income, aes(x=IncomeGroup, y=Count, fill=BirthRate)) +
+  geom_bar(stat="identity", color="darkolivegreen3",position=position_dodge()) +
+  scale_fill_brewer(palette="Greens") +
+  labs(title="Birth Rate and Income Group, WDI", x="Income Group", y="Count of Countries", fill="Birth Rate (per 1K people)") +
+  theme_minimal() +
+  theme(legend.position="top", plot.title=element_text(size=12, face="bold", hjust=0.5)) 
+
+#3 bivariate 
+
+bivariate <- ggplot(WDI, aes(x=birthrate, y=postsecondary)) +
+  geom_point(na.rm=TRUE, size=2, color="lightslateblue") +
+  geom_smooth(method=lm, se=FALSE, linetype="dashed", color="grey") +
+  labs(title="Birth Rate and Educational Attainment, WDI", x="Birth Rate (per 1K People)", y="Have Post-Secondary Education (% of Pop)", fill="Birth Rate (per 1K people)") +
+  theme_light() +
+  theme(plot.title=element_text(size=12, face="bold", hjust=0.5),
+                    axis.title=element_text(size=10,face="bold"),
+        axis.text=element_text(size=8))
+
+
+  
+#4 murder vs poor
+
+WDI$gdp <- cut(WDI$gdppc, breaks =c(0, 3000, 10000, 30000, 50000, 99999), na.rm=TRUE)
+WDI$gdp <- factor(WDI$gdp, ordered=TRUE, labels=c("Below $3,000", "$3,000-$10,000", "$10,000-$30,000", "$30,000-$50,000", "Over $50,000"))
+murder.poor<- aggregate(murder ~ gdp,WDI, median)
+murder.poor
+
+mvp <- ggplot(murder.poor, aes(x=gdp, y=murder)) +
+  geom_bar(stat="identity", na.rm=TRUE, fill="steelblue") +
+  scale_y_continuous(breaks=seq(0, 4.5, 0.5)) +
+  labs(title="Is Murder More Common in Poorer Countries?", x="Per Capita GDP", y="Median Murder Rate per 100,000") +
+  theme(axis.text=element_text(size=8, color="gray48")) 
+
+```
+
+
+```{r, echo=T, message=FALSE, warning=FALSE, fig.align="center"}
+univariate
+```
+
+**1. Univariate Histogram of Murder Rates Per 100,000 People.** This histogram shows most countries have very low murder rates. The biggest cluster of countries have murder rates of less than 20people/100K. There is a much smaller cluster of countries with murder rates of 20-40people/100K. It can also be seen that the histogram is extremely right skewed, with two outliers hovering around the 60 per 100K people mark (*these countries are __El Salvador__ at almost 62 people/100k, and __Jamaica__ at around 56 people/100K*). It is important to note that from the extract, not all countries have values for murder rates, so this histogram does not show an accurate picture of intentional homicides across the world.
+
+***
+
+```{r, echo=T, fig.align="center"}
+bivariate.d
+```
+**2. Bivariate Discretes Bar Plot for Birth Rates and Income Group.**
+This bar plot shows most countries fall in the low-income group; Additionally, the chart shows that low-income countries tend to have Medium-High birth rates, while also having the lowest number of countries for low birth rates across the three income groups. For both medium and high income groups, we can see that they tend to have low and medium birth rates, and rarely any high birth rates (if any).
+
+***
+```{r, echo=T, message=FALSE, warning=FALSE, fig.align="center"}
+bivariate
+```
+**3. Bivariate Scatterplot for Birth Rates Per 1,000 People and Educational Attainment.** The scatterplot presents a negative trend in birth rates and educational attainment. Countries who have lower birth rates tend to have more citizens who have some or completed a post-secondary education (any level of education beyond high school). Countries with higher birth rates are correlated with low rates of post-secondary educational attainment. Once again, many countries did not have values for either post-secondary education or birth rates, so this graph is not an accurate representation.
+
+***
+```{r, echo=T, message=FALSE, warning=FALSE, fig.align="center"}
+mvp
+```
+**4. Reproduction of Graph Shown in Assignment.** Countries with lower GDPs per capita (under $10,000) have higher median rates of murder than those in wealthier countries.
+
+
+
