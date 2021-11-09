@@ -1,0 +1,19 @@
+---
+title: "712-1-ZIA"
+output: html_document
+---
+
+# ASSIGNMENT 1
+
+
+## What is data analytics?
+
+> Data analytics is the process of gathering meaningful insights from large (or small) quantities of data. Part of the process is to recognize patterns and trends in datasets, but also to recognize anomalies. From these, data analytics allows you to make inferences that can help you understand why or how something is happening, make decisions, and predict outcomes or behavior based on factual information. It is useful in virtually all sectors, including businesses, marketing, public relations, governments, projects, healthcare, and more.
+
+
+## How can data analytics help your enterprise?
+
+> Data analytics gives you the capacity to understand your "audience" better - the demographics, their reactions, behaviors, and opinions. Understanding your audience helps an enterprise make more informed decisions that suit what the "audience" wants or needs. For example, in businesses, understanding what customers or clients want or need is useful in improving customer service and relationships. It helps for more effective marketing by pinpointing which campaigns (ads) and techniques drive interest and interaction. This information can be used to attract more customers and generate better sales. In finances and securities, data analytics helps detect fraud by recognizing irregularities. Data analytics also helps organizations manage risk by identifying possible outcomes. 
+
+## What are R and RStudio?
+> R is one of the more dominant programming languages in data analytics. It is especially useful for data exploration, processing, and visualization, summarizing data, and statistical computing. RStudio is essentially an "add-on" to R; it is a software application that makes using R easier and more efficient. You cannot use RStudio without R. 
